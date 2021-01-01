@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
-	"syscall"
+	//"syscall"
 	"time"
 
 	"github.com/ncarlier/webhookd/pkg/logger"
@@ -30,17 +30,21 @@ func Run(work *model.WorkRequest) error {
 	logger.Debug.Printf("hook %s#%d script: %s\n", work.Name, work.ID, work.Script)
 	logger.Debug.Printf("hook %s#%d parameter: %v\n", work.Name, work.ID, work.Args)
 
-	binary, err := exec.LookPath(work.Script)
+	binary, err := exec.LookPath("powershell.exe")
+	//binary, err := exec.LookPath(work.Script)
 	if err != nil {
 		return work.Terminate(err)
 	}
 
 	// Exec script with args...
-	cmd := exec.Command(binary, work.Payload)
+	//args = append([]string{"-File", work.Script}, args...)
+	cmd := exec.Command(binary, "-File", work.Script, work.Payload)
+	//cmd := exec.Command(binary, work.Payload)
 	// with env variables...
 	cmd.Env = append(os.Environ(), work.Args...)
 	// using a process group...
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	//cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	setProcessGroupID(cmd)
 
 	// Open the log file for writing
 	logFile, err := os.Create(work.LogFilename)
@@ -101,7 +105,8 @@ func Run(work *model.WorkRequest) error {
 	// Start timeout timer
 	timer := time.AfterFunc(time.Duration(work.Timeout)*time.Second, func() {
 		logger.Warning.Printf("hook %s#%d has timed out (%ds): killing process #%d ...\n", work.Name, work.ID, work.Timeout, cmd.Process.Pid)
-		syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		//syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		terminateProcess(cmd.Process.Pid)
 	})
 
 	// Wait for command output completion
